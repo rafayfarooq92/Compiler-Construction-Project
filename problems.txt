@@ -1,0 +1,6 @@
+Problems:
+b[a] //Done
+Switch CASE Type with the one in the switch.
+Function Scope.
+Function Scope Parameter Type and Return Type.
+array can't be passed as function arg.

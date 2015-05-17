@@ -1,0 +1,610 @@
+%{
+#include <cstdio>
+#include <iostream>
+#include <sstream>
+using namespace std;
+
+// stuff from flex that bison needs to know about:
+extern "C" int yylex();
+extern "C" int yyparse();
+extern "C" FILE *yyin;
+extern "C" FILE *yyout;
+void yyerror(const char *s);
+extern int lineNumber;
+
+%}
+
+// Bison fundamentally works by asking flex to get the next token, which it
+// returns as an object of type "yystype".  But tokens could be of any
+// arbitrary data type!  So we deal with that in Bison by defining a C union
+// holding each of the types of tokens that Flex could return, and have Bison
+// use that union instead of "int" for the definition of "yystype":
+%union {
+	int ival;
+	float fval;
+	char *sval;
+	char charval;
+}
+%expect 1
+// define the "terminal symbol" token types I'm going to use (in CAPS
+// by convention), and associate each with a field of the union:
+//%token <ival> INT
+//%token <fval> FLOAT
+%token <sval> STRING
+%type  <charval> directdeclarator_a
+%type  <sval> directdeclarator
+%type  <sval> terminal
+%type  <sval> declarator
+%type  <sval> typespecifier
+%token <ival> INTEGER
+%token <cval> CHARACTER
+%token <fval> FLOATPOINT
+%token <sval> IDENTIFIER
+%token <sval> INT
+%token <sval> CHAR
+%token <sval> FLOAT
+%token <sval> VOID
+%token COMMA
+%token OPENINGROUNDBRACKET
+%token CLOSINGROUNDBRACKET
+%token OPENINGCURLYBRACKET
+%token CLOSINGCURLYBRACKET
+%token CLOSINGSQUAREBRACKET
+%token OPENINGSQUAREBRACKET
+%token  DEFAULT
+%token  WHILE
+%token  BREAK
+%token  CONTINUE
+%token  IF
+%token  FOR
+%token  SWITCH
+%token  RETURN
+%token  DO
+%token  CASE
+%token CONDITIONALOPERATOR
+%token MULTIPLY
+%token COLON
+%token INCREAMENT
+%token DECREAMENT
+%token GREATERTHAN
+%token LESSTHAN
+%token GREATERTHANEQUAL
+%token ISNOTEQUALTO
+%token LESSTHANEQUAL
+%token ISEQUALTO
+%token ENDOFSTATEMENT
+%right THAN ELSE
+%left MULTIPLY DIVIDE MODULUS ADD SUB 
+%right ASSIGN ADDANDASSIGN SUBANDASSIGN MULTIPLYANDASSIGN DIVIDEANDASSIGN MODULUSANDASSIGN
+%{
+int size=0;
+string scoper="Global";
+string prev_scope="Global";
+
+char isFunction=' ';
+string myType=" ";
+int myArraySize=-1;
+bool check=false;
+class myClass{
+public:
+string lexeme;
+string type;
+string scope;
+int arraySize;
+string functionName;
+int lineNumbers;
+
+
+
+void initArray()
+{
+		lexeme=" ";
+		type=" ";
+		scope=scoper;
+		arraySize=-1;
+		functionName=" ";
+		lineNumbers=lineNumber;
+		
+		
+	
+}
+
+
+void printArray(){
+		if(arraySize==-1)
+		cout<<lexeme<<"\t\t"<<type<<"\t\t"<<scope<<"\t\t"<<" "<<"\t\t"<<functionName<<"\t\t"<<lineNumbers<<endl;
+		else
+		cout<<lexeme<<"\t\t"<<type<<"\t\t"<<scope<<"\t\t"<<arraySize<<"\t\t"<<functionName<<"\t\t"<<lineNumbers<<endl;
+}
+};
+myClass tabElem[500];
+
+void PrintAll(){
+	cout<<"Lexeme"<<"\t	"<<"Type"<<"\t	"<<"Scope"<<"\t	"<<"Array Size"<<"\t"<<"Function"<<"\t"<<"Line Number"<<endl;
+	cout<<"------"<<"\t	"<<"----"<<"\t	"<<"-----"<<"\t	"<<"----------"<<"\t"<<"--------"<<"\t"<<"------------"<<endl;
+	
+	for(int i=0;i<size;i++)
+	{
+		tabElem[i].printArray();
+	}
+}
+
+void SetAll(){
+	for(int i=0;i<500;i++)
+	{
+		tabElem[i].initArray();
+	}
+}
+string convertInt(int number)
+{
+   stringstream ss;//create a stringstream
+   ss << number;//add number to the stream
+   return ss.str();//return a string with the contents of the stream
+}
+string convertFloat(float number)
+{
+   stringstream ss;//create a stringstream
+   ss << number;//add number to the stream
+   return ss.str();//return a string with the contents of the stream
+}
+
+
+%}
+
+
+
+%%
+// this is the actual grammar that bison will parse, but for right now it's just
+// something silly to echo to the screen what bison gets from flex.  We'll
+// make a real one shortly:
+
+
+
+transitionunit:
+externaldeclaration transitionunit_a
+;
+
+transitionunit_a:
+externaldeclaration transitionunit_a
+|/* empty */
+;
+
+externaldeclaration:
+functiondefinition 
+| declaration ENDOFSTATEMENT
+;
+
+functiondefinition:
+typespecifier declarator {
+scoper=$2;
+
+} functiondefinition_a
+| declarator   functiondefinition_b{
+scoper=$1;
+}
+;
+
+functiondefinition_a:
+declarationlist  compoundstatement
+| compoundstatement
+;
+
+
+functiondefinition_b:
+declarationlist  compoundstatement
+| compoundstatement
+;
+
+typespecifier:
+VOID{
+$$=$1;
+myType=$1;
+}
+|CHAR{
+$$=$1;
+myType=$1;
+}
+|INT{
+$$=$1;
+myType=$1;
+}
+|FLOAT{
+$$=$1;
+myType=$1;
+}
+;
+
+declarator:
+directdeclarator{
+$$=$1;
+}
+| pointer  directdeclarator{
+$$=$2;
+}
+;
+
+
+
+directdeclarator:
+terminal  directdeclarator_a{
+tabElem[size].lexeme=$1;
+tabElem[size].scope=scoper;
+
+tabElem[size].type=myType;
+tabElem[size].arraySize=myArraySize;
+tabElem[size].functionName=$2;
+myArraySize=-1;
+tabElem[size].lineNumbers=lineNumber;
+size++;
+$$=$1;
+
+}
+;
+terminal:
+IDENTIFIER {if(check==true){prev_scope=$1;scoper=prev_scope;}check=false; $$=$1;}
+;
+
+
+directdeclarator_a:
+OPENINGROUNDBRACKET directdeclarator_b{
+$$='Y';
+scoper=prev_scope;
+}
+|OPENINGSQUAREBRACKET directdeclarator_c{
+$$=' ';
+}
+|/* empty */{
+$$=' ';
+}
+;
+
+directdeclarator_b:
+declarator CLOSINGROUNDBRACKET directdeclarator_a
+| parameterlist CLOSINGROUNDBRACKET directdeclarator_a 
+| parameterlist error directdeclarator_a { yyerror("Closing Bracket Missing");}
+|CLOSINGROUNDBRACKET directdeclarator_a
+| error directdeclarator_a { yyerror("Closing Bracket Missing");}
+;
+
+
+directdeclarator_c:
+CLOSINGSQUAREBRACKET directdeclarator_a {
+myArraySize=0;
+}
+| error directdeclarator_a { yyerror("Closing Square Bracket Missing");}
+|INTEGER CLOSINGSQUAREBRACKET directdeclarator_a{
+myArraySize=$1;
+}
+| INTEGER error directdeclarator_a { yyerror("Closing Bracket Missing");}
+;
+
+
+pointer:
+MULTIPLY pointer_a
+;
+pointer_a:
+pointer 
+|/* empty */ 
+;
+
+declarationlist:
+declaration  ENDOFSTATEMENT declarationlist_a
+| declaration  error declarationlist_a { yyerror("Semicolon Missing");}
+;
+
+declarationlist_a:
+declaration  ENDOFSTATEMENT declarationlist_a 
+|/* empty */ 
+;
+
+declaration:
+typespecifier  declaration_a
+;
+
+declaration_a:
+initdeclaratorlist 
+|/* empty */ 
+;
+initdeclaratorlist:
+initdeclarator initdeclaratorlist_a 
+;
+
+initdeclaratorlist_a:
+COMMA initdeclarator initdeclaratorlist_a  
+|/* empty */ 
+;
+
+initdeclarator:
+declarator  initdeclarator_a
+;
+
+initdeclarator_a: 
+ASSIGN initializer
+|/* empty */ 
+;
+
+initializer: constant |OPENINGCURLYBRACKET initializerlist CLOSINGCURLYBRACKET | OPENINGCURLYBRACKET initializerlist COMMA CLOSINGCURLYBRACKET; 
+initializerlist: initializer | initializerlist COMMA initializer ; 
+
+
+
+parameterlist:
+parameterdeclaration parameterlist_a
+;
+parameterlist_a:
+COMMA parameterdeclaration parameterlist_a
+|/* empty */
+;
+
+parameterdeclaration:
+typespecifier  parameterdeclaration_a
+;
+
+parameterdeclaration_a  : declarator
+|/* empty */ 
+;
+
+
+
+compoundstatement:OPENINGCURLYBRACKET compoundstatement_a
+;
+compoundstatement_a: CLOSINGCURLYBRACKET
+|statementlist CLOSINGCURLYBRACKET
+|declarationlist compoundstatement_b
+;
+compoundstatement_b:
+statementlist CLOSINGCURLYBRACKET
+|CLOSINGCURLYBRACKET
+;
+
+statementlist:
+statement  statementlist_a
+;
+
+statementlist_a:
+statement statementlist_a
+|/* empty */ 
+;
+statement:
+labeledstatement 
+| compoundstatement 
+| expressionstatement
+| selectionstatement 
+| iterationstatement 
+| jumpstatement 
+;
+
+labeledstatement:
+CASE constant COLON statement 
+|DEFAULT COLON statement 
+;
+
+expressionstatement:
+ENDOFSTATEMENT
+| expression ENDOFSTATEMENT
+| error { yyerror("Missing Expression Or Semicolon");}
+;
+
+selectionstatement:
+IF OPENINGROUNDBRACKET expression CLOSINGROUNDBRACKET statement  selectionstatement_a
+;
+
+selectionstatement_a:
+ELSE statement 
+|/* empty */ 
+;
+selectionstatement:
+SWITCH OPENINGROUNDBRACKET expression CLOSINGROUNDBRACKET statement
+| SWITCH error  expression CLOSINGROUNDBRACKET statement { yyerror("Opening Bracket Missing");}
+;
+
+jumpstatement:
+CONTINUE ENDOFSTATEMENT
+|CONTINUE error { yyerror("Semicolon Missing");}
+|BREAK ENDOFSTATEMENT
+| BREAK error { yyerror("Semicolon Missing");}
+|RETURN jumpstatement_a
+;
+
+jumpstatement_a:
+expression ENDOFSTATEMENT
+| error ENDOFSTATEMENT { yyerror("Expression Missing/Invalid");}
+;
+
+iterationstatement:
+WHILE OPENINGROUNDBRACKET expression CLOSINGROUNDBRACKET statement
+|DO statement WHILE OPENINGROUNDBRACKET expression CLOSINGROUNDBRACKET ENDOFSTATEMENT
+|FOR OPENINGROUNDBRACKET expression ENDOFSTATEMENT expression ENDOFSTATEMENT expression CLOSINGROUNDBRACKET statement
+;
+
+conditionalexpression:
+equalityexpression  conditionalexpression_a
+;
+
+conditionalexpression_a:
+CONDITIONALOPERATOR expression COLON conditionalexpression
+|/* empty */
+;
+
+expression:
+assignmentexpression expression_a
+;
+expression_a:
+COMMA assignmentexpression expression_a
+|/* empty */
+;
+
+assignmentexpression:
+conditionalexpression
+|unaryexpression assignmentoperator assignmentexpression
+|unaryexpression error assignmentexpression { yyerror("Missing Assignment Operator");}
+;
+
+equalityexpression:
+relationalexpression equalityexpression_a
+;
+equalityexpression_a:
+ISEQUALTO relationalexpression equalityexpression_a
+|ISNOTEQUALTO relationalexpression equalityexpression_a
+|/* empty */
+;
+
+relationalexpression:
+additiveexpression relationalexpression_a
+;
+
+relationalexpression_a:
+LESSTHAN additiveexpression relationalexpression_a
+|GREATERTHAN additiveexpression relationalexpression_a
+|LESSTHANEQUAL additiveexpression relationalexpression_a
+|GREATERTHANEQUAL additiveexpression relationalexpression_a
+|/* empty */
+;
+
+additiveexpression:
+multiplicativeexpression additiveexpression_a
+;
+
+additiveexpression_a:
+SUB multiplicativeexpression additiveexpression_a
+|ADD multiplicativeexpression additiveexpression_a
+|/* empty */
+;
+
+multiplicativeexpression:
+unaryexpression multiplicativeexpression_a
+;
+multiplicativeexpression_a:
+MULTIPLY unaryexpression multiplicativeexpression_a
+|DIVIDE unaryexpression multiplicativeexpression_a
+|MODULUS unaryexpression multiplicativeexpression_a
+|/* empty */
+;
+
+assignmentoperator:
+ASSIGN
+|ADDANDASSIGN
+|SUBANDASSIGN
+|MULTIPLYANDASSIGN     
+|DIVIDEANDASSIGN
+|MODULUSANDASSIGN
+;
+
+constant:
+INTEGER
+|CHARACTER
+|FLOATPOINT
+|STRING
+;
+
+unaryexpression:
+postfixexpression
+|INCREAMENT unaryexpression
+|DECREAMENT unaryexpression
+;
+
+postfixexpression:
+primaryexpression postfixexpression_a
+;
+
+postfixexpression_a:
+OPENINGSQUAREBRACKET expression CLOSINGSQUAREBRACKET postfixexpression_a
+|OPENINGROUNDBRACKET postfixexpression_b
+|INCREAMENT postfixexpression_a
+|DECREAMENT postfixexpression_a
+|/* empty */
+;
+
+postfixexpression_b:
+argumentexpressionlist CLOSINGROUNDBRACKET postfixexpression_a
+|CLOSINGROUNDBRACKET postfixexpression_a
+|error postfixexpression_a { yyerror("Closing Bracket Missing");}
+;
+
+argumentexpressionlist:
+additiveexpression argumentexpressionlist_a
+;
+
+argumentexpressionlist_a:
+COMMA additiveexpression  argumentexpressionlist_a
+| error additiveexpression  argumentexpressionlist_a { yyerror("Comma Missing");}
+|/* empty */
+;
+
+primaryexpression:IDENTIFIER 
+|constant
+;
+
+
+
+
+
+
+/*input: input primarypxpression
+| primarypxpression
+
+
+primarypxpression: IDENTIFIER {
+tabElem[size].lexeme=$1;
+tabElem[size].scope=scoper;
+tabElem[size].lineNumbers=lineNumber;
+tabElem[size].printArray();
+
+size++;
+}
+| constant
+
+constant: INT
+| CHAR
+| FLOAT
+| STRING
+
+
+
+/*
+snazzle:
+	snazzle INT { cout << "bison found an int: " << $2 << endl  
+	tabElem[size].type="Int" tabElem[size].lexeme=convertInt($2)tabElem[size].lineNumbers=lineNumber size++ 
+	}
+	| snazzle FLOAT { cout << "bison found a float: " << $2 << endl;
+	tabElem[size].type="Float" tabElem[size].lexeme=convertFloat($2)tabElem[size].lineNumbers=lineNumber  size++ 
+	}
+	| snazzle STRING { cout << "bison found a string: " << $2 << endl;
+	tabElem[size].type="String" tabElem[size].lexeme=$2tabElem[size].lineNumbers=lineNumber  size++ 
+	} 
+	| INT            { cout << "bison found an int: " << $1 << endl 
+	tabElem[size].type="Int" tabElem[size].lexeme=convertInt($1)tabElem[size].lineNumbers=lineNumber  size++ 
+	}
+	| FLOAT          { cout << "bison found a float: " << $1 << endl 
+	tabElem[size].type="Float" tabElem[size].lexeme=convertFloat($1)tabElem[size].lineNumbers=lineNumber  size++
+	}
+	| STRING         { cout << "bison found a string: " << $1 << endl 
+	tabElem[size].type="String" tabElem[size].lexeme=$1tabElem[size].lineNumbers=lineNumber  size++ 
+	}
+	*/
+%%
+
+main() {
+	SetAll();
+	// open a file handle to a particular file:
+	FILE *myfile = fopen("input.c", "r");
+	FILE *yourFile=fopen("output.txt","w");
+	yyout = yourFile;
+	
+	
+	// make sure it is valid:
+	if (!myfile) {
+		cout << "I can't open a.snazzle.file!" << endl;
+		return -1;
+	}
+	// set flex to read from it instead of defaulting to STDIN:
+	yyin = myfile;
+	
+	// parse through the input until there is no more:
+	do {
+		yyparse();
+	} while (!feof(yyin));
+	PrintAll();
+	fclose(yyout);
+}
+
